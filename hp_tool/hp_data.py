@@ -23,20 +23,25 @@ def copyrename(image, path, usrname, org, seq, other):
     """
     Performs the copy/rename operation
     :param image: original filename (full path)
-    :param path: destination path
+    :param path: destination path. This must have 3 subdirectories: images, video, and csv
     :param usrname: username for new filename
     :param org: organization code for new filename
     :param seq: sequence # for new filename
     :param other: other info for new filename
     :return: full path of new file
     """
+    global exts
     newNameStr = datetime.datetime.now().strftime('%Y%m%d')[2:] + '-' + \
                     org + usrname + '-' + seq
     if other:
         newNameStr = newNameStr + '-' + other
 
     currentExt = os.path.splitext(image)[1]
-    newPathName = os.path.join(path, newNameStr + currentExt)
+    if currentExt.lower() in exts['VIDEO']:
+        sub ='video'
+    else:
+        sub = 'image'
+    newPathName = os.path.join(path, sub, 'temp', newNameStr + currentExt)
     shutil.copy2(image, newPathName)
     return newPathName
 
@@ -438,6 +443,12 @@ def frac2dec(fracStr):
     #         print 'The troublesome file is: ' + fracStr
     #         return fracStr
 
+def check_create_subdirectories(path):
+    subs = ['image', 'video', 'csv']
+    for sub in subs:
+        if not os.path.exists(os.path.join(path, sub)):
+            os.makedirs(os.path.join(path, sub))
+
 def parse_image_info(imageList, path='', rec=False, collReq='', camera='', localcam='', lens='', locallens='', hd='',
                      sspeed='', fnum='', expcomp='', iso='', noisered='', whitebal='', expmode='', flash='',
                      focusmode='', kvalue='', location='', obfilter='', obfiltertype='', lensfilter='',
@@ -655,6 +666,8 @@ def process(preferences='', metadata='', files='', range='', imgdir='', outputdi
     imageInfo = parse_image_info(imageList, path=imgdir, rec=recursive, **kwargs)
     print ' done'
 
+    check_create_subdirectories(outputdir)
+
     # copy
     try:
         count = int(userInfo['seq'])
@@ -662,17 +675,19 @@ def process(preferences='', metadata='', files='', range='', imgdir='', outputdi
         count = 0
         add_seq(preferences)
 
-    csv_keywords = os.path.join(outputdir, datetime.datetime.now().strftime('%Y%m%d')[2:] + '-' +
+    csv_keywords = os.path.join(outputdir, 'csv', datetime.datetime.now().strftime('%Y%m%d')[2:] + '-' +
                                 userInfo['organization'] + userInfo['username'] + '-' + 'keywords.csv')
 
 
-    csv_metadata = os.path.join(outputdir, datetime.datetime.now().strftime('%Y%m%d')[2:] + '-' +
+    csv_metadata = os.path.join(outputdir, 'csv', datetime.datetime.now().strftime('%Y%m%d')[2:] + '-' +
                                 userInfo['organization'] + userInfo['username'] + '-' + 'xdata.csv')
 
     try:
         extraValues = parse_extra(xdata, csv_metadata)
     except TypeError:
         extraValues = None
+
+    check_create_subdirectories(outputdir)
 
     print 'Copying files...',
     newNameList = []
