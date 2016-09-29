@@ -147,7 +147,8 @@ def grab_range(files):
 def grab_dir(inpath, outdir=None, r=False):
     """
     Grabs all image files in a directory
-    :param path: path to directory of desired files
+    :param inpath: path to directory of desired files
+    :param outdir: path to output csv directory, to check for existing images
     :param r: Recursively grab images from all subdirectories as well
     :return: list of images in directory
     """
@@ -448,6 +449,15 @@ def check_create_subdirectories(path):
     for sub in subs:
         if not os.path.exists(os.path.join(path, sub)):
             os.makedirs(os.path.join(path, sub))
+        os.makedirs(os.path.join(path, sub, 'temp'))
+
+def remove_temp_subs(path):
+    subs = ['image', 'video', 'csv']
+    for sub in subs:
+        for f in os.listdir(os.path.join(path,sub,'temp')):
+            shutil.move(os.path.join(path,sub,'temp',f), os.path.join(path,sub))
+        os.rmdir(os.path.join(path,sub,'temp'))
+
 
 def parse_image_info(imageList, path='', rec=False, collReq='', camera='', localcam='', lens='', locallens='', hd='',
                      sspeed='', fnum='', expcomp='', iso='', noisered='', whitebal='', expmode='', flash='',
@@ -643,11 +653,17 @@ def parse_image_info(imageList, path='', rec=False, collReq='', camera='', local
 
 def process(preferences='', metadata='', files='', range='', imgdir='', outputdir='', recursive=False, xdata='',
             keywords='', additionalInfo='', tally=False, **kwargs):
+
+    # parse preferences
     userInfo = parse_prefs(preferences)
     print 'Successfully pulled preferences'
 
+    # collect image list
     print 'Collecting images...',
     imageList = []
+
+    # set up the output subdirectories
+    check_create_subdirectories(outputdir)
 
     if files:
         imageList.extend(grab_individuals(files))
@@ -655,20 +671,23 @@ def process(preferences='', metadata='', files='', range='', imgdir='', outputdi
         fRange = range.split(' ')
         imageList.extend(grab_range(fRange))
     else:
-        imageList.extend(grab_dir(imgdir, outputdir, recursive))
+        imageList.extend(grab_dir(imgdir, os.path.join(outputdir, 'csv'), recursive))
     print ' done'
 
     if not imageList:
         print 'No new images found'
+        remove_temp_subs(outputdir)
         return imageList, []
 
+    # build information list. This is the bulk of the processing, and what runs exiftool
     print 'Building image info...',
     imageInfo = parse_image_info(imageList, path=imgdir, rec=recursive, **kwargs)
     print ' done'
 
+    # once we're sure we have info to work with, we can check for the image, video, and csv subdirectories
     check_create_subdirectories(outputdir)
 
-    # copy
+    # prepare for the copy operation
     try:
         count = int(userInfo['seq'])
     except KeyError:
@@ -687,8 +706,8 @@ def process(preferences='', metadata='', files='', range='', imgdir='', outputdi
     except TypeError:
         extraValues = None
 
-    check_create_subdirectories(outputdir)
 
+    # copy with renaming
     print 'Copying files...',
     newNameList = []
     for image in imageList:
@@ -707,18 +726,21 @@ def process(preferences='', metadata='', files='', range='', imgdir='', outputdi
     print 'Updating metadata...'
     newData = change_all_metadata.parse_file(metadata)
     if imgdir:
-        change_all_metadata.process(outputdir, newData, quiet=True)
+        change_all_metadata.process(os.path.join(outputdir, 'image', 'temp'), newData, quiet=True)
+        change_all_metadata.process(os.path.join(outputdir, 'video', 'temp'), newData, quiet=True)
     else:
         change_all_metadata.process(newNameList, newData, quiet=True)
 
+
+
     print 'Building RIT file'
-    csv_rit = os.path.join(outputdir, os.path.basename(newNameList[0])[0:11] + 'rit.csv')
+    csv_rit = os.path.join(outputdir, 'csv', os.path.basename(newNameList[0])[0:11] + 'rit.csv')
     build_rit_file(imageList, imageInfo, csv_rit, newNameList=newNameList)
     'Success'
 
     # history file:
     print 'Building history file'
-    csv_history = os.path.join(outputdir, os.path.basename(newNameList[0])[0:11] + 'history.csv')
+    csv_history = os.path.join(outputdir, 'csv', os.path.basename(newNameList[0])[0:11] + 'history.csv')
     build_history_file(imageList, newNameList, imageInfo, csv_history)
 
     if tally:
@@ -727,6 +749,10 @@ def process(preferences='', metadata='', files='', range='', imgdir='', outputdi
         csv_tally = os.path.join(outputdir, os.path.basename(newNameList[0])[0:11] + 'tally.csv')
         tally_images(imageInfo, csv_tally)
         print 'Successfully tallied image data'
+
+    # move out of tempfolder
+    print 'Cleaning up...'
+    remove_temp_subs(outputdir)
 
     print '\nComplete!'
 

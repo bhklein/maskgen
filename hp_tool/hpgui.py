@@ -216,14 +216,14 @@ class HPGUI(Frame):
 
         (self.oldImageNames, self.newImageNames) = process(**kwargs)
         aSheet = Toplevel(self)
-        sheet = HPSpreadsheet(self.outputdir.get(), master=aSheet)
+        sheet = HPSpreadsheet(os.path.join(self.outputdir.get(), 'csv'), master=aSheet)
         self.keywordsbutton.config(state=NORMAL)
         #self.kvpairsbutton.config(state=NORMAL)
         # sheet.open_spreadsheet()
 
     def open_keywords_sheet(self):
         keywordsSheet = Toplevel(self)
-        keywords = KeywordsSheet(self.outputdir.get(), master=keywordsSheet, newImageNames=self.newImageNames, oldImageNames=self.oldImageNames)
+        keywords = KeywordsSheet(os.path.join(self.outputdir.get(), 'csv'), master=keywordsSheet, newImageNames=self.newImageNames, oldImageNames=self.oldImageNames)
 
     def open_kv_sheet(self):
         kvSheet = Toplevel(self)
