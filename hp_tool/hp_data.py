@@ -447,9 +447,8 @@ def frac2dec(fracStr):
 def check_create_subdirectories(path):
     subs = ['image', 'video', 'csv']
     for sub in subs:
-        if not os.path.exists(os.path.join(path, sub)):
-            os.makedirs(os.path.join(path, sub))
-        os.makedirs(os.path.join(path, sub, 'temp'))
+        if not os.path.exists(os.path.join(path, sub, 'temp')):
+            os.makedirs(os.path.join(path, sub, 'temp'))
 
 def remove_temp_subs(path):
     subs = ['image', 'video', 'csv']
