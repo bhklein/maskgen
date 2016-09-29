@@ -41,7 +41,7 @@ def copyrename(image, path, usrname, org, seq, other):
         sub ='video'
     else:
         sub = 'image'
-    newPathName = os.path.join(path, sub, 'temp', newNameStr + currentExt)
+    newPathName = os.path.join(path, sub, '.hptemp', newNameStr + currentExt)
     shutil.copy2(image, newPathName)
     return newPathName
 
@@ -447,15 +447,15 @@ def frac2dec(fracStr):
 def check_create_subdirectories(path):
     subs = ['image', 'video', 'csv']
     for sub in subs:
-        if not os.path.exists(os.path.join(path, sub, 'temp')):
-            os.makedirs(os.path.join(path, sub, 'temp'))
+        if not os.path.exists(os.path.join(path, sub, '.hptemp')):
+            os.makedirs(os.path.join(path, sub, '.hptemp'))
 
 def remove_temp_subs(path):
     subs = ['image', 'video', 'csv']
     for sub in subs:
-        for f in os.listdir(os.path.join(path,sub,'temp')):
-            shutil.move(os.path.join(path,sub,'temp',f), os.path.join(path,sub))
-        os.rmdir(os.path.join(path,sub,'temp'))
+        for f in os.listdir(os.path.join(path,sub,'.hptemp')):
+            shutil.move(os.path.join(path,sub,'.hptemp',f), os.path.join(path,sub))
+        os.rmdir(os.path.join(path,sub,'.hptemp'))
 
 
 def parse_image_info(imageList, path='', rec=False, collReq='', camera='', localcam='', lens='', locallens='', hd='',
@@ -725,8 +725,8 @@ def process(preferences='', metadata='', files='', range='', imgdir='', outputdi
     print 'Updating metadata...'
     newData = change_all_metadata.parse_file(metadata)
     if imgdir:
-        change_all_metadata.process(os.path.join(outputdir, 'image', 'temp'), newData, quiet=True)
-        change_all_metadata.process(os.path.join(outputdir, 'video', 'temp'), newData, quiet=True)
+        change_all_metadata.process(os.path.join(outputdir, 'image', '.hptemp'), newData, quiet=True)
+        change_all_metadata.process(os.path.join(outputdir, 'video', '.hptemp'), newData, quiet=True)
     else:
         change_all_metadata.process(newNameList, newData, quiet=True)
 
