@@ -449,6 +449,11 @@ def check_create_subdirectories(path):
     for sub in subs:
         if not os.path.exists(os.path.join(path, sub, '.hptemp')):
             os.makedirs(os.path.join(path, sub, '.hptemp'))
+        for f in os.listdir(os.path.join(path, sub,'.hptemp')):
+            oldFile = os.path.join(path, sub, '.hptemp', f)
+            if os.path.isfile(oldFile):
+                os.remove(oldFile)
+
 
 def remove_temp_subs(path):
     subs = ['image', 'video', 'csv']
