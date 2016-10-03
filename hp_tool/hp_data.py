@@ -57,8 +57,11 @@ def parse_prefs(data):
     try:
         with open(data) as f:
             for line in f:
-                (tag, descr) = line.split('=')
-                newData[tag.lower().strip()] = descr.strip()
+                try:
+                    (tag, descr) = line.split('=')
+                    newData[tag.lower().strip()] = descr.strip()
+                except ValueError:
+                    continue
     except IOError:
         print('Input file: ' + data + ' not found. ' + 'Please try again.')
         sys.exit()
@@ -80,6 +83,14 @@ def parse_prefs(data):
         if newData['organization'] not in orgs.values():
             print 'Error: organization code: ' + newData['organization'] + ' not recognized'
             sys.exit(0)
+
+    # reset sequence if date is new
+    try:
+        if newData['date'] != datetime.datetime.now().strftime('%Y%m%d')[2:]:
+            newData['seq'] = '00000'
+    except KeyError:
+        newData['date'] = datetime.datetime.now().strftime('%Y%m%d')[2:]
+        add_date(data)
 
     return newData
 
@@ -173,7 +184,7 @@ def grab_dir(inpath, outdir=None, r=False):
         for f in os.listdir(outdir):
             if f.endswith('.csv') and 'rit' in f:
                 ritCSV = os.path.join(outdir, f)
-                rit = pd.read_csv(ritCSV)
+                rit = pd.read_csv(ritCSV, dtype=str)
                 repeated = rit['OriginalImageName'].tolist()
                 test1 = repeated[0]
                 test2 = repeated[2]
@@ -200,24 +211,29 @@ def grab_dir(inpath, outdir=None, r=False):
 
     return imageList
 
-def write_seq(prefs, newSeq):
+
+def update_prefs(prefs, inputdir, outputdir, newSeq):
     """
     Updates the sequence value in a file
     :param prefs: the file to be updated
     :param newSeq: string containing the new 5-digit sequence value (e.g. '00001'
     :return: None
     """
-    f = open(prefs, 'r')
-    data = f.read()
-    f.close()
-
-    i = data.find('seq=')
-    currentSeq = data[i + 4:i + 10]
-    newData = data.replace(currentSeq, newSeq)
-    f = open(prefs, 'w')
-    f.write(newData)
-    f.close()
-
+    originalFileName = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'preferences.txt')
+    tmpFileName = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'tmp.txt')
+    with open(tmpFileName, 'wb') as new:
+        with open(originalFileName, 'rb') as original:
+            for line in original:
+                if line.startswith('seq='):
+                    new.write('seq=' + newSeq + '\n')
+                elif line.startswith('date='):
+                    new.write('date=' + datetime.datetime.now().strftime('%Y%m%d')[2:] + '\n')
+                else:
+                    new.write(line)
+                    if not line.endswith('\n'):
+                        new.write('\n')
+    os.remove(originalFileName)
+    shutil.move(tmpFileName, originalFileName)
 
 def add_seq(filename):
     """
@@ -227,7 +243,11 @@ def add_seq(filename):
     :return: None
     """
     with open(filename, 'ab') as f:
-        f.write('\nseq=00000')
+        f.write('\nseq=00000\n')
+
+def add_date(filename):
+    with open(filename, 'ab') as f:
+        f.write('\ndate=' + datetime.datetime.now().strftime('%Y%m%d')[2:] + '\n')
 
 
 def build_keyword_file(image, keywords, csvFile):
@@ -414,30 +434,31 @@ def tally_images(data, csvFile):
             tallyWriter.writerow(final[i] + [final[i+1]])
             i += 2
 
-def s3_prefs(values, upload=False):
-    """
-    Parse S3 data and download/upload preferences file
-    :param values: bucket/path of s3
-    :param upload: Will upload pref file if specified, download otherwise
-    :return: None
-    """
-    s3 = boto3.client('s3', 'us-east-1')
-    BUCKET = values[0][0:values[0].find('/')]
-    DIR = values[0][values[0].find('/') + 1:]
-    if upload:
-        try:
-            s3.upload_file('preferences.txt', BUCKET, DIR + '/preferences.txt')
-        except WindowsError:
-            sys.exit('local file preferences.txt not found!')
-    else:
-        s3.download_file(BUCKET, DIR + '/preferences.txt', 'preferences.txt')
+# def s3_prefs(values, upload=False):
+#     """
+#     Parse S3 data and download/upload preferences file
+#     :param values: bucket/path of s3
+#     :param upload: Will upload pref file if specified, download otherwise
+#     :return: None
+#     """
+#     s3 = boto3.client('s3', 'us-east-1')
+#     BUCKET = values[0][0:values[0].find('/')]
+#     DIR = values[0][values[0].find('/') + 1:]
+#     if upload:
+#         try:
+#             s3.upload_file('preferences.txt', BUCKET, DIR + '/preferences.txt')
+#         except WindowsError:
+#             sys.exit('local file preferences.txt not found!')
+#     else:
+#         s3.download_file(BUCKET, DIR + '/preferences.txt', 'preferences.txt')
 
 def frac2dec(fracStr):
-    try:
-        return float(fracStr)
-    except ValueError:
-        num, denom = fracStr.split('/')
-        return float(num)/float(denom)
+    return fracStr
+    # try:
+    #     return float(fracStr)
+    # except ValueError:
+    #     num, denom = fracStr.split('/')
+    #     return float(num)/float(denom)
 
 def check_create_subdirectories(path):
     subs = ['image', 'video', 'csv']
@@ -604,7 +625,6 @@ def parse_image_info(imageList, path='', rec=False, collReq='', camera='', local
             else:
                 exifDataStr += subprocess.Popen(['exiftool','-f'] + exiftoolargs + [path], stdout=subprocess.PIPE).communicate()[0]
             exifData = exifDataStr.split(os.linesep)[:-3]
-            print 'Ran exiftool successfully. Hooray.'
         else:
             while counter < len(imageList):
                 if len(imageList) - counter > 500:
@@ -722,7 +742,7 @@ def process(preferences='', metadata='', files='', range='', imgdir='', outputdi
         count += 1
     print ' done'
 
-    write_seq(preferences, pad_to_5_str(count))
+    update_prefs(preferences, inputdir=imgdir, outputdir=outputdir, newSeq=pad_to_5_str(count))
     print 'Prefs updated with new sequence number'
 
     print 'Updating metadata...'
