@@ -280,12 +280,12 @@ def build_rit_file(imageList, info, csvFile, newNameList=None):
                                     'ShutterSpeed', 'Aperture', 'ExpCompensation', 'ISO', 'NoiseReduction', 'WhiteBalance',
                                     'HP-DegreesKelvin', 'ExposureMode', 'FlashFired', 'FocusMode', 'CreationDate', 'HP-Location',
                                     'GPSLatitude', 'HP-OnboardFilter', 'GPSLongitude', 'BitDepth', 'ImageWidth', 'ImageHeight',
-                                    'HP-OBFilterType', 'HP-LensFilter', 'Type', 'Reflections', 'Shadows'])
+                                    'HP-OBFilterType', 'HP-LensFilter', 'Type', 'Reflections', 'Shadows', 'HP-HDR'])
         if newNameList:
             for imNo in xrange(len(imageList)):
                 md5 = hashlib.md5(open(newNameList[imNo], 'rb').read()).hexdigest()
                 ritWriter.writerow([os.path.basename(newNameList[imNo]), info[imNo][0], info[imNo][1], os.path.basename(imageList[imNo]), md5, info[imNo][29]] +
-                                   info[imNo][2:4] + [info[imNo][30]] + info[imNo][4:29] + info[imNo][31:33])
+                                   info[imNo][2:4] + [info[imNo][30]] + info[imNo][4:29] + info[imNo][31:])
         else:
             for imNo in xrange(len(imageList)):
                 md5 = hashlib.md5(open(imageList[imNo], 'rb').read()).hexdigest()
@@ -433,16 +433,11 @@ def s3_prefs(values, upload=False):
         s3.download_file(BUCKET, DIR + '/preferences.txt', 'preferences.txt')
 
 def frac2dec(fracStr):
-    return fracStr
-    # try:
-    #     return float(fracStr)
-    # except ValueError:
-    #     try:
-    #         num, denom = fracStr.split('/')
-    #         return float(num)/float(denom)
-    #     except ValueError:
-    #         print 'The troublesome file is: ' + fracStr
-    #         return fracStr
+    try:
+        return float(fracStr)
+    except ValueError:
+        num, denom = fracStr.split('/')
+        return float(num)/float(denom)
 
 def check_create_subdirectories(path):
     subs = ['image', 'video', 'csv']
@@ -466,7 +461,7 @@ def remove_temp_subs(path):
 def parse_image_info(imageList, path='', rec=False, collReq='', camera='', localcam='', lens='', locallens='', hd='',
                      sspeed='', fnum='', expcomp='', iso='', noisered='', whitebal='', expmode='', flash='',
                      focusmode='', kvalue='', location='', obfilter='', obfiltertype='', lensfilter='',
-                     cameramodel='', lensmodel='', jq='', reflections='', shadows=''):
+                     cameramodel='', lensmodel='', jq='', reflections='', shadows='', hdr=''):
     """
     Prepare list of values about the specified image.
     If an argument is entered as an empty string, will check image's exif data for it.
@@ -510,10 +505,11 @@ def parse_image_info(imageList, path='', rec=False, collReq='', camera='', local
     30. LensModel
     31. Reflections
     32. Shadows
+    33. HDR
     """
     exiftoolargs = []
     data = []
-    master = [collReq, hd, '', localcam, '', locallens, '', jq] + [''] * 6 + [kvalue] + [''] * 4 + [location, '', obfilter] + [''] * 4 + [obfiltertype, lensfilter, '', '', '', reflections, shadows]
+    master = [collReq, hd, '', localcam, '', locallens, '', jq] + [''] * 6 + [kvalue] + [''] * 4 + [location, '', obfilter] + [''] * 4 + [obfiltertype, lensfilter, '', '', '', reflections, shadows, hdr]
     missingIdx = []
 
     if camera:
@@ -608,6 +604,7 @@ def parse_image_info(imageList, path='', rec=False, collReq='', camera='', local
             else:
                 exifDataStr += subprocess.Popen(['exiftool','-f'] + exiftoolargs + [path], stdout=subprocess.PIPE).communicate()[0]
             exifData = exifDataStr.split(os.linesep)[:-3]
+            print 'Ran exiftool successfully. Hooray.'
         else:
             while counter < len(imageList):
                 if len(imageList) - counter > 500:
@@ -619,7 +616,6 @@ def parse_image_info(imageList, path='', rec=False, collReq='', camera='', local
                 exifDataList = exifDataStr.split(os.linesep)[:-2]
                 exifData.extend(exifDataList[:])
                 counter += 500
-
         sub = '====='
         imageIndices = []
         newExifData = []
@@ -652,6 +648,8 @@ def parse_image_info(imageList, path='', rec=False, collReq='', camera='', local
             if data[i][20] and data[i][22]:
                 data[i][20] = convert_GPS(data[i][20])
                 data[i][22] = convert_GPS(data[i][22])
+            if 'hdr' in imageList[i].lower():
+                data[i][33] = 'True'
 
     return data
 
@@ -734,8 +732,6 @@ def process(preferences='', metadata='', files='', range='', imgdir='', outputdi
         change_all_metadata.process(os.path.join(outputdir, 'video', '.hptemp'), newData, quiet=True)
     else:
         change_all_metadata.process(newNameList, newData, quiet=True)
-
-
 
     print 'Building RIT file'
     csv_rit = os.path.join(outputdir, 'csv', os.path.basename(newNameList[0])[0:11] + 'rit.csv')

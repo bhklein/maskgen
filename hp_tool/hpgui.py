@@ -4,8 +4,8 @@ import pandas
 import ttk
 import tkFileDialog
 import tkMessageBox
+import numpy as np
 from hp_data import *
-
 
 
 class KeywordsSheet(pandastable.Table):
@@ -16,7 +16,13 @@ class KeywordsSheet(pandastable.Table):
         self.dir = dir
         self.master = master
         self.master.title(self.dir)
+        self.saveState = True
+        master.protocol("WM_DELETE_WINDOW", self.check_save)
+        master.bind("<Key>", self.keypress)
         self.open_spreadsheet()
+
+    def keypress(self, event):
+        self.saveState = False
 
     def open_spreadsheet(self):
         self.keywordsCSV = None
@@ -33,21 +39,26 @@ class KeywordsSheet(pandastable.Table):
         menubar = Menu(self)
         menubar.add_command(label='Save', command=self.__exportCSV)
         menubar.add_command(label='Fill Down', command=self.__fill_down)
+        menubar.add_command(label='Validate', command = self.__validate)
+        menubar.add_command(label='Add column', command=self.__add_column)
         self.master.config(menu=menubar)
 
 
     def createKeywordsCSV(self):
         keywordsName = os.path.join(self.dir, datetime.datetime.now().strftime('%Y%m%d')[2:] + '-' + 'keywords.csv')
-        with open(keywordsName, 'wb') as csvFile:
-            writer = csv.writer(csvFile)
-            writer.writerow(['Old Filename', 'New Filename', 'Keyword1', 'Keyword2', 'Keyword3'])
-            for im in range(0, len(self.newImageNames)):
-                writer.writerow([os.path.basename(self.oldImageNames[im]), os.path.basename(self.newImageNames[im])] + ['']*3)
+        if not os.path.exists(keywordsName):
+            with open(keywordsName, 'wb') as csvFile:
+                writer = csv.writer(csvFile)
+                writer.writerow(['Old Filename', 'New Filename', 'Keyword1', 'Keyword2', 'Keyword3'])
+                for im in range(0, len(self.newImageNames)):
+                    writer.writerow([os.path.basename(self.oldImageNames[im]), os.path.basename(self.newImageNames[im])] + ['']*3)
 
         return keywordsName
 
-    def __exportCSV(self):
+    def __exportCSV(self, showErrors=True):
         self.pt.redraw()
+        if showErrors:
+            self.__validate()
         self.pt.doExport(self.keywordsCSV)
         tmp = self.keywordsCSV + '-tmp.csv'
         with open(self.keywordsCSV, "rb") as source:
@@ -71,20 +82,70 @@ class KeywordsSheet(pandastable.Table):
                 self.pt.model.setValueAt(selection[0][0],row,col)
         self.pt.redraw()
 
+    def __validate(self):
+        try:
+            keysFile = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'ImageKeywords.csv')
+            with open(keysFile) as keys:
+                keywords = keys.readlines()
+        except IOError:
+            tkMessageBox.showwarning('Warning', 'Keywords reference not found!')
+            return
+
+        keywords = [x.strip() for x in keywords]
+        errors = []
+        for row in range(0, self.pt.rows):
+            for col in range(2, self.pt.cols):
+                val = str(self.pt.model.getValueAt(row, col))
+                if val != 'nan' and val != '' and val not in keywords:
+                    errors.append('Invalid keyword for ' + str(self.pt.model.getValueAt(row, 0)) + ' (Row ' + str(row+1) + ', Keyword ' + str(col-1) + ', Value: ' + val + ')')
+
+        if errors:
+            ErrorWindow(errors).show_errors()
+        else:
+            tkMessageBox.showinfo('Spreadsheet Validation', 'Nice work! All entries are valid.')
+
+    def __add_column(self):
+        numCols = self.pt.cols
+        new = np.empty(self.pt.rows)
+        new[:] = np.NAN
+        self.pt.model.df['Keyword ' + str(self.pt.cols - 1)] = pd.Series(new, index=self.pt.model.df.index)
+        self.pt.redraw()
+
+    def check_save(self):
+        if self.saveState == False:
+            message = 'Would you like to save before closing this sheet?'
+            confirm = tkMessageBox.askyesnocancel(title="Save On Close", message=message, default=tkMessageBox.YES)
+            if confirm:
+                errs = self.__exportCSV(showErrors=False)
+                if not errs:
+                    self.master.destroy()
+            elif confirm is None:
+                pass
+            else:
+                self.master.destroy()
+        else:
+            self.master.destroy()
 
 
-class KVPairsSheet(pandastable.Table):
-    def __init__(self, dir, master=None, oldImageNames=[], newImageNames=[]):
-        pandastable.Table.__init__(self, master)
-        self.oldImageNames = oldImageNames
-        self.newImageNames = newImageNames
-        self.dir = dir
-        self.master = master
-        self.master.title(self.dir)
-        self.open_spreadsheet()
+class ErrorWindow(Toplevel):
+    def __init__(self, errors, master=None):
+        Toplevel.__init__(self, master)
+        self.wm_title('Spreadsheet Validation')
+        self.errors = errors
 
-    def open_spreadsheet(self):
-        pass
+    def show_errors(self):
+        scrollbar = Scrollbar(self)
+        scrollbar.pack(side=RIGHT, fill=Y)
+
+        listbox = Listbox(self, width=80)
+        listbox.pack()
+
+        for i in self.errors:
+            listbox.insert(END, i)
+
+        # attach listbox to scrollbar
+        listbox.config(yscrollcommand=scrollbar.set)
+        scrollbar.config(command=listbox.yview)
 
 
 class HPSpreadsheet(pandastable.Table):
@@ -93,8 +154,13 @@ class HPSpreadsheet(pandastable.Table):
         self.dir = dir
         self.master = master
         self.master.title(self.dir)
+        self.saveState = True
+        master.protocol("WM_DELETE_WINDOW", self.check_save)
+        master.bind("<Key>", self.keypress)
         self.open_spreadsheet()
 
+    def keypress(self, event):
+        self.saveState = False
 
     def open_spreadsheet(self):
         self.ritCSV = None
@@ -105,21 +171,25 @@ class HPSpreadsheet(pandastable.Table):
         self.pt = pandastable.Table(self.master)
         self.pt.show()
         self.pt.importCSV(self.ritCSV)
-        self.__color_code_cells()
+        self.original = self.pt.model.df
 
+        self.obfiltercol = self.pt.model.df.columns.get_loc('HP-OnboardFilter')
+        self.reflectionscol = self.pt.model.df.columns.get_loc('Reflections')
+        self.shadcol = self.pt.model.df.columns.get_loc('Shadows')
+        self.modelcol = self.pt.model.df.columns.get_loc('CameraModel')
+        self.hdrcol = self.pt.model.df.columns.get_loc('HP-HDR')
+
+        self.color_code_cells()
 
         menubar = Menu(self)
         menubar.add_command(label='Save', command=self.__exportCSV)
         menubar.add_command(label='Fill Down', command=self.__fill_down)
+        menubar.add_command(label='Validate', command=self.__validate)
         self.master.config(menu=menubar)
 
-    def __color_code_cells(self):
+    def color_code_cells(self):
         notnans = self.pt.model.df.notnull()
-        obfiltercol = self.pt.model.df.columns.get_loc('HP-OnboardFilter')
-        reflectionscol = self.pt.model.df.columns.get_loc('Reflections')
-        shadcol = self.pt.model.df.columns.get_loc('Shadows')
-        modelcol = self.pt.model.df.columns.get_loc('CameraModel')
-        redcols = [obfiltercol, reflectionscol, shadcol, modelcol]
+        redcols = [self.obfiltercol, self.reflectionscol, self.shadcol, self.modelcol, self.hdrcol]
         for row in range(0, self.pt.rows):
             for col in range(0, self.pt.cols):
                 x1, y1, x2, y2 = self.pt.getCellCoords(row, col)
@@ -138,8 +208,10 @@ class HPSpreadsheet(pandastable.Table):
                 self.pt.lift('cellrect')
         self.pt.redraw()
 
-    def __exportCSV(self):
+    def __exportCSV(self, showErrors=True):
         self.pt.redraw()
+        if showErrors:
+            self.__validate()
         self.pt.doExport(self.ritCSV)
         tmp = self.ritCSV + '-tmp.csv'
         with open(self.ritCSV, "rb") as source:
@@ -150,6 +222,7 @@ class HPSpreadsheet(pandastable.Table):
                     wtr.writerow((r[1:]))
         os.remove(self.ritCSV)
         os.rename(tmp, self.ritCSV)
+        self.saveState = True
         tkMessageBox.showinfo('Status', 'Saved!')
 
 
@@ -162,6 +235,39 @@ class HPSpreadsheet(pandastable.Table):
             for col in colList:
                 self.pt.model.setValueAt(selection[0][0],row,col)
         self.pt.redraw()
+
+    def __validate(self):
+        errors = []
+        booleanCols = [self.obfiltercol, self.reflectionscol, self.shadcol, self.hdrcol]
+        for col in range(0, self.pt.cols):
+            if col in booleanCols:
+                for row in range(0, self.pt.rows):
+                    val = str(self.pt.model.getValueAt(row, col))
+                    if val.title() == 'True' or val.title() == 'False':
+                        self.pt.model.setValueAt(val.title(), row, col)
+                    else:
+                        currentColName = list(self.pt.model.df.columns.values)[col]
+                        errors.append('Invalid entry at column ' + currentColName + ', row ' + str(row + 1) + '. Value must be True or False')
+
+        if errors:
+            ErrorWindow(errors).show_errors()
+
+        return errors
+
+    def check_save(self):
+        if self.saveState == False:
+            message = 'Would you like to save before closing this sheet?'
+            confirm = tkMessageBox.askyesnocancel(title="Save On Close", message=message, default=tkMessageBox.YES)
+            if confirm:
+                errs = self.__exportCSV(showErrors=False)
+                if not errs:
+                    self.master.destroy()
+            elif confirm is None:
+                pass
+            else:
+                self.master.destroy()
+        else:
+            self.master.destroy()
 
 class HPGUI(Frame):
 
@@ -225,10 +331,6 @@ class HPGUI(Frame):
         keywordsSheet = Toplevel(self)
         keywords = KeywordsSheet(os.path.join(self.outputdir.get(), 'csv'), master=keywordsSheet, newImageNames=self.newImageNames, oldImageNames=self.oldImageNames)
 
-    def open_kv_sheet(self):
-        kvSheet = Toplevel(self)
-        kv = KVPairsSheet(self.outputdir.get, master=kvSheet, newImageNames=self.newImageNames, oldImageNames=self.oldImageNames)
-
     def createWidgets(self):
         self.recBool = BooleanVar()
         self.recBool.set(False)
@@ -237,15 +339,15 @@ class HPGUI(Frame):
         self.recbox = Checkbutton(self, text='Include subdirectories', variable=self.recBool)
         self.recbox.grid(row=0, column=3, ipadx=5, ipady=5, padx=5, pady=5)
         self.inputdir = Entry(self)
-        self.inputdir.insert(END, os.getcwd())
-        #self.inputdir.insert(END, 'C:\\Users\\SmithA\\Desktop\\Tooltesting\\test1')
+        #self.inputdir.insert(END, os.getcwd())
+        self.inputdir.insert(END, 'C:\\Users\\SmithA\\Desktop\\Tooltesting\\test1')
         self.inputdir.grid(row=0, column=1, ipadx=5, ipady=5, padx=0, pady=5, columnspan=2)
 
         self.outputSelector = Button(self, text='Output directory: ', command=self.load_output, width=20)
         self.outputSelector.grid(row=1, column=0, ipadx=5, ipady=5, padx=5, pady=5, columnspan=1)
         self.outputdir = Entry(self, width=20)
-        self.outputdir.insert(END, os.getcwd())
-        #self.outputdir.insert(END, 'C:\\Users\\SmithA\\Desktop\\Tooltesting\\test2')
+        #self.outputdir.insert(END, os.getcwd())
+        self.outputdir.insert(END, 'C:\\Users\\SmithA\\Desktop\\Tooltesting\\test2')
         self.outputdir.grid(row=1, column=1, ipadx=2, ipady=5, padx=5, pady=5, columnspan=2)
 
         self.metadatalabel = Button(self, text='Metadata file: ', command=self.select_metadatafile, width=20)
