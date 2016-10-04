@@ -188,27 +188,18 @@ def grab_dir(inpath, outdir=None, r=False):
                 repeated = rit['OriginalImageName'].tolist()
                 test1 = repeated[0]
                 test2 = repeated[2]
-                # for image in range(0, len(repeated)):
-                #     repeated[image] = repeated[image][1:].strip()
-                # break
         removeList = []
         for name in imageList:
             for repeatedName in repeated:
-                if repeatedName in name:
-                    removeList.append(name)
-                    # imageList.remove(name)
-                    # repeated.remove(repeatedName)
-                    break
+                if repeatedName:
+                    if repeatedName in name:
+                        removeList.append(name)
+                        # imageList.remove(name)
+                        # repeated.remove(repeatedName)
+                        break
 
         for imageName in removeList:
             imageList.remove(imageName)
-        # matching = [s for s in some_list if "abc" in s]
-        # imageBaseNames = [os.path.basename(p) for p in imageList]
-        # for name in repeated:
-        #     if name in imageBaseNames:
-        #         indicesToRemove = imageBaseNames.index(name)
-        # del imageList[indicesToRemove]
-
     return imageList
 
 
