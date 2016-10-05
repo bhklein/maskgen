@@ -1,4 +1,5 @@
 from Tkinter import *
+import tkFileDialog
 import os
 import pandas as pd
 import tkMessageBox
@@ -9,12 +10,14 @@ from ErrorWindow import ErrorWindow
 
 
 class HPSpreadsheet(Toplevel):
-    def __init__(self, dir, master=None):
+    def __init__(self, dir=None, ritCSV=None, master=None):
         Toplevel.__init__(self, master=master)
         self.create_widgets()
-        # pandastable.Table.__init__(self, width=200, height=100)
         self.dir = dir
+        if self.dir:
+            self.imageDir = os.path.join(self.dir, 'image')
         self.master = master
+        self.ritCSV=ritCSV
         self.saveState = True
         self.protocol('WM_DELETE_WINDOW', self.check_save)
         self.set_bindings()
@@ -42,12 +45,15 @@ class HPSpreadsheet(Toplevel):
         self.menubar = Menu(self)
         self.fileMenu = Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="File", menu=self.fileMenu)
-        self.fileMenu.add_command(label='Save', command=self.__exportCSV, accelerator='ctrl-s')
-        self.fileMenu.add_command(label='Validate', command=self.__validate)
+        self.fileMenu.add_command(label='Save', command=self.exportCSV, accelerator='ctrl-s')
+        self.fileMenu.add_command(label='Load image directory', command=self.load_images)
+        self.fileMenu.add_command(label='Validate', command=self.validate)
 
         self.editMenu = Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label='Edit', menu=self.editMenu)
-        self.editMenu.add_command(label='Fill Down', command=self.__fill_down, accelerator='ctrl-d')
+        self.editMenu.add_command(label='Fill Down', command=self.fill_down, accelerator='ctrl-d')
+        self.editMenu.add_command(label='Fill True', command=self.pt.enter_true, accelerator='ctrl-t')
+        self.editMenu.add_command(label='Fill False', command=self.pt.enter_false, accelerator='ctr-f')
         self.config(menu=self.menubar)
 
     def set_bindings(self):
@@ -57,8 +63,8 @@ class HPSpreadsheet(Toplevel):
         self.bind('<Right>', self.update_current_image)
         self.bind('<Up>', self.update_current_image)
         self.bind('<Down>', self.update_current_image)
-        self.bind('<Control-d>', self.__fill_down)
-        self.bind('<Control-s>', self.__exportCSV)
+        self.bind('<Control-d>', self.fill_down)
+        self.bind('<Control-s>', self.exportCSV)
 
     def keypress(self, event):
         self.saveState = False
@@ -70,7 +76,7 @@ class HPSpreadsheet(Toplevel):
 
         try:
             size = 250, 250
-            im = Image.open(os.path.join(self.dir, 'image', val))
+            im = Image.open(os.path.join(self.imageDir, val))
             im.thumbnail(size, Image.ANTIALIAS)
             newimg=ImageTk.PhotoImage(im)
             self.l2.configure(image=newimg)
@@ -82,31 +88,34 @@ class HPSpreadsheet(Toplevel):
             self.l2.configure(image=newimg)
             self.l2.image = newimg
 
-
-
+    def load_images(self):
+        self.imageDir = tkFileDialog.askdirectory(initialdir=self.dir)
+        self.focus_set()
 
     def open_spreadsheet(self):
-        self.ritCSV = None
-        self.csvdir = os.path.join(self.dir, 'csv')
-        for f in os.listdir(self.csvdir):
-            if f.endswith('.csv') and 'rit' in f:
-                self.ritCSV = os.path.join(self.csvdir, f)
-        self.title(self.csvdir)
+        if self.dir and not self.ritCSV:
+            self.csvdir = os.path.join(self.dir, 'csv')
+            for f in os.listdir(self.csvdir):
+                if f.endswith('.csv') and 'rit' in f:
+                    self.ritCSV = os.path.join(self.csvdir, f)
+        self.title(self.ritCSV)
         self.pt.importCSV(self.ritCSV)
-        self.original = self.pt.model.df
 
         self.obfiltercol = self.pt.model.df.columns.get_loc('HP-OnboardFilter')
-        self.reflectionscol = self.pt.model.df.columns.get_loc('Reflections')
-        self.shadcol = self.pt.model.df.columns.get_loc('Shadows')
+        try:
+            self.reflectionscol = self.pt.model.df.columns.get_loc('HP-Reflections')
+            self.shadcol = self.pt.model.df.columns.get_loc('HP-Shadows')
+        except KeyError:
+            self.reflectionscol = self.pt.model.df.columns.get_loc('Reflections')
+            self.shadcol = self.pt.model.df.columns.get_loc('Shadows')
         self.modelcol = self.pt.model.df.columns.get_loc('CameraModel')
         self.hdrcol = self.pt.model.df.columns.get_loc('HP-HDR')
-        self.appcol = self.pt.model.df.columns.get_loc('HP-App')
 
         self.color_code_cells()
 
     def color_code_cells(self):
         notnans = self.pt.model.df.notnull()
-        redcols = [self.obfiltercol, self.reflectionscol, self.shadcol, self.modelcol, self.hdrcol, self.appcol]
+        redcols = [self.obfiltercol, self.reflectionscol, self.shadcol, self.modelcol, self.hdrcol]
         for row in range(0, self.pt.rows):
             for col in range(0, self.pt.cols):
                 x1, y1, x2, y2 = self.pt.getCellCoords(row, col)
@@ -126,10 +135,10 @@ class HPSpreadsheet(Toplevel):
                 self.pt.lift('cellrect')
         self.pt.redraw()
 
-    def __exportCSV(self, showErrors=True):
+    def exportCSV(self, showErrors=True):
         self.pt.redraw()
         if showErrors:
-            self.__validate()
+            self.validate()
         self.pt.doExport(self.ritCSV)
         tmp = self.ritCSV + '-tmp.csv'
         with open(self.ritCSV, 'rb') as source:
@@ -141,9 +150,9 @@ class HPSpreadsheet(Toplevel):
         os.remove(self.ritCSV)
         os.rename(tmp, self.ritCSV)
         self.saveState = True
-        tkMessageBox.showinfo('Status', 'Saved!')
+        msg = tkMessageBox.showinfo('Status', 'Saved!')
 
-    def __fill_down(self, event=None):
+    def fill_down(self, event=None):
         selection = self.pt.getSelectionValues()
         cells = self.pt.getSelectedColumn
         rowList = range(cells.im_self.startrow, cells.im_self.endrow + 1)
@@ -153,7 +162,7 @@ class HPSpreadsheet(Toplevel):
                 self.pt.model.setValueAt(selection[0][0], row, col)
         self.pt.redraw()
 
-    def __validate(self):
+    def validate(self):
         errors = []
         booleanCols = [self.obfiltercol, self.reflectionscol, self.shadcol, self.hdrcol]
         for col in range(0, self.pt.cols):
@@ -179,7 +188,7 @@ class HPSpreadsheet(Toplevel):
             message = 'Would you like to save before closing this sheet?'
             confirm = tkMessageBox.askyesnocancel(title='Save On Close', message=message, default=tkMessageBox.YES)
             if confirm:
-                errs = self.__exportCSV(showErrors=False)
+                errs = self.exportCSV(showErrors=False)
                 if not errs:
                     self.destroy()
             elif confirm is None:
@@ -263,17 +272,17 @@ class CustomTable(pandastable.Table):
         return
 
     def enter_true(self, event):
-        # row = self.get_row_clicked(event)
-        # col = self.get_col_clicked(event)
-        self.model.setValueAt('True', self.currentrow, self.currentcol)
-        self.gotonextCell()
+        for row in range(self.startrow,self.endrow+1):
+            for col in range(self.startcol, self.endcol+1):
+                self.model.setValueAt('True', row, col)
         self.redraw()
 
     def enter_false(self, event):
         # row = self.get_row_clicked(event)
         # col = self.get_col_clicked(event)
-        self.model.setValueAt('False', self.currentrow, self.currentcol)
-        self.gotonextCell()
+        for row in range(self.startrow,self.endrow+1):
+            for col in range(self.startcol, self.endcol+1):
+                self.model.setValueAt('False', row, col)
         self.redraw()
 
     def move_selection(self, event, direction='down', entry=False):
@@ -335,4 +344,15 @@ class CustomTable(pandastable.Table):
         self.endrow = self.currentrow
         self.startcol = self.currentcol
         self.endcol = self.currentcol
+        return
+
+    def gotonextCell(self):
+        """Move highlighted cell to next cell in row or a new col"""
+
+        if hasattr(self, 'cellentry'):
+            self.cellentry.destroy()
+        self.currentrow = self.currentrow+1
+        # if self.currentcol >= self.cols-1:
+        #     self.currentcol = self.currentcol+1
+        self.drawSelectedRect(self.currentrow, self.currentcol)
         return

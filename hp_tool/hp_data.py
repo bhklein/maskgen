@@ -291,7 +291,7 @@ def build_rit_file(imageList, info, csvFile, newNameList=None):
                                     'ShutterSpeed', 'Aperture', 'ExpCompensation', 'ISO', 'NoiseReduction', 'WhiteBalance',
                                     'HP-DegreesKelvin', 'ExposureMode', 'FlashFired', 'FocusMode', 'CreationDate', 'HP-Location',
                                     'GPSLatitude', 'HP-OnboardFilter', 'GPSLongitude', 'BitDepth', 'ImageWidth', 'ImageHeight',
-                                    'HP-OBFilterType', 'HP-LensFilter', 'Type', 'Reflections', 'Shadows', 'HP-HDR', 'HP-App'])
+                                    'HP-OBFilterType', 'HP-LensFilter', 'Type', 'HP-Reflections', 'HP-Shadows', 'HP-HDR', 'HP-App'])
         if newNameList:
             for imNo in xrange(len(imageList)):
                 md5 = hashlib.md5(open(newNameList[imNo], 'rb').read()).hexdigest()
@@ -648,7 +648,7 @@ def parse_image_info(imageList, path='', rec=False, collReq='', camera='', local
         for i in xrange(len(imageList)):
             data.append(master[:])
             ex = os.path.splitext(imageList[i])[1]
-            data[i][6] = os.path.splitext(imageList[i])[1]
+            data[i][6] = os.path.splitext(imageList[i])[1][1:]
             if ex.lower() in exts['IMAGE']:
                 data[i][28] = 'image'
             else:

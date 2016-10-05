@@ -40,7 +40,6 @@ class HPGUI(Frame):
                         new.write(line)
                         if not line.endswith('\n'):
                             new.write('\n')
-
             if insertInputDir:
                 new.write('\ninputdir=' + self.inputdir.get())
             if insertOutputDir:
@@ -109,7 +108,7 @@ class HPGUI(Frame):
         self.update_defaults()
 
         (self.oldImageNames, self.newImageNames) = process(**kwargs)
-        aSheet = HPSpreadsheet(self.outputdir.get(), master=self.master)
+        aSheet = HPSpreadsheet(dir=self.outputdir.get(), master=self.master)
         #sheet = HPSpreadsheet(master=aSheet)
         aSheet.open_spreadsheet()
         self.keywordsbutton.config(state=NORMAL)
@@ -117,8 +116,15 @@ class HPGUI(Frame):
         # sheet.open_spreadsheet()
 
     def open_keywords_sheet(self):
-        keywordsSheet = Toplevel(self)
-        keywords = KeywordsSheet(os.path.join(self.outputdir.get(), 'csv'), master=keywordsSheet, newImageNames=self.newImageNames, oldImageNames=self.oldImageNames)
+        keywords = KeywordsSheet(dir = self.outputdir.get(), master=self.master, newImageNames=self.newImageNames, oldImageNames=self.oldImageNames)
+
+    def open_old_rit_csv(self):
+        csv = tkFileDialog.askopenfilename(initialdir=self.outputdir.get())
+        HPSpreadsheet(dir=self.outputdir.get(), ritCSV=csv, master=self.master).open_spreadsheet()
+
+    def open_old_keywords_csv(self):
+        csv = tkFileDialog.askopenfilename(initialdir=self.outputdir.get())
+        KeywordsSheet(dir=self.outputdir.get(), keyCSV=csv, master=self.master).open_spreadsheet()
 
     def createWidgets(self):
         self.recBool = BooleanVar()
@@ -177,14 +183,22 @@ class HPGUI(Frame):
 
         self.sep2 = ttk.Separator(self, orient=HORIZONTAL).grid(row=lastRow+1, columnspan=8, sticky='EW')
 
-        self.okbutton = Button(self, text='Load ', command=self.go, width=20, bg='green')
+        self.okbutton = Button(self, text='Run ', command=self.go, width=20, bg='green')
         self.okbutton.grid(row=lastRow+2,column=0, ipadx=5, ipady=5, sticky='E')
         self.cancelbutton = Button(self, text='Cancel', command=self.quit, width=20, bg='red')
         self.cancelbutton.grid(row=lastRow+2, column=6, ipadx=5, ipady=5, padx=5, sticky='W')
 
+        # self.loadButton = Button(self, text='Load CSV', command=self.open_csv, width=20)
+        # self.loadButton.grid(row=lastRow+2, column=2, ipadx=5, ipady=5, padx=5, sticky='E')
         self.keywordsbutton = Button(self, text='Enter Keywords', command=self.open_keywords_sheet, state=DISABLED, width=20)
-        self.keywordsbutton.grid(row=lastRow+2, column=2, ipadx=5, ipady=5, padx=5, sticky='E')
+        self.keywordsbutton.grid(row=lastRow+2, column=3, ipadx=5, ipady=5, padx=5, sticky='E')
 
+        self.menubar = Menu(self)
+        self.fileMenu = Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label='File', menu=self.fileMenu)
+        self.fileMenu.add_command(label='Open HP Data Spreadsheet for Editing', command=self.open_old_rit_csv, accelerator='ctrl-o')
+        self.fileMenu.add_command(label='Open Keywords Spreadsheet for Editing', command=self.open_old_keywords_csv)
+        self.master.config(menu=self.menubar)
 
 def main():
     root = Tk()
