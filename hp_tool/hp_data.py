@@ -291,7 +291,7 @@ def build_rit_file(imageList, info, csvFile, newNameList=None):
                                     'ShutterSpeed', 'Aperture', 'ExpCompensation', 'ISO', 'NoiseReduction', 'WhiteBalance',
                                     'HP-DegreesKelvin', 'ExposureMode', 'FlashFired', 'FocusMode', 'CreationDate', 'HP-Location',
                                     'GPSLatitude', 'HP-OnboardFilter', 'GPSLongitude', 'BitDepth', 'ImageWidth', 'ImageHeight',
-                                    'HP-OBFilterType', 'HP-LensFilter', 'Type', 'Reflections', 'Shadows', 'HP-HDR'])
+                                    'HP-OBFilterType', 'HP-LensFilter', 'Type', 'Reflections', 'Shadows', 'HP-HDR', 'HP-App'])
         if newNameList:
             for imNo in xrange(len(imageList)):
                 md5 = hashlib.md5(open(newNameList[imNo], 'rb').read()).hexdigest()
@@ -468,12 +468,13 @@ def remove_temp_subs(path):
         for f in os.listdir(os.path.join(path,sub,'.hptemp')):
             shutil.move(os.path.join(path,sub,'.hptemp',f), os.path.join(path,sub))
         os.rmdir(os.path.join(path,sub,'.hptemp'))
-
+        if not os.listdir(os.path.join(path,sub)):
+            os.rmdir(os.path.join(path,sub))
 
 def parse_image_info(imageList, path='', rec=False, collReq='', camera='', localcam='', lens='', locallens='', hd='',
                      sspeed='', fnum='', expcomp='', iso='', noisered='', whitebal='', expmode='', flash='',
                      focusmode='', kvalue='', location='', obfilter='', obfiltertype='', lensfilter='',
-                     cameramodel='', lensmodel='', jq='', reflections='', shadows='', hdr=''):
+                     cameramodel='', lensmodel='', jq='', reflections='', shadows='', hdr='', app=''):
     """
     Prepare list of values about the specified image.
     If an argument is entered as an empty string, will check image's exif data for it.
@@ -518,10 +519,13 @@ def parse_image_info(imageList, path='', rec=False, collReq='', camera='', local
     31. Reflections
     32. Shadows
     33. HDR
+    34. App
     """
     exiftoolargs = []
     data = []
-    master = [collReq, hd, '', localcam, '', locallens, '', jq] + [''] * 6 + [kvalue] + [''] * 4 + [location, '', obfilter] + [''] * 4 + [obfiltertype, lensfilter, '', '', '', reflections, shadows, hdr]
+    if not hd:
+        hd = path
+    master = [collReq, hd, '', localcam, '', locallens, '', jq] + [''] * 6 + [kvalue] + [''] * 4 + [location, '', obfilter] + [''] * 4 + [obfiltertype, lensfilter, '', '', '', reflections, shadows, hdr, app]
     missingIdx = []
 
     if camera:

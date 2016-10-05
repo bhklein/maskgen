@@ -7,7 +7,7 @@ import tkFileDialog
 import tkMessageBox
 import numpy as np
 from hp_data import *
-from RITSheet import HPSpreadsheet
+from HPSpreadsheet import HPSpreadsheet
 from KeywordsSheet import KeywordsSheet
 #from Prefs import Preferences
 
@@ -15,6 +15,7 @@ class HPGUI(Frame):
 
     def __init__(self, master=None):
         Frame.__init__(self, master)
+        self.master=master
         self.grid()
         self.oldImageNames = []
         self.newImageNames = []
@@ -108,8 +109,9 @@ class HPGUI(Frame):
         self.update_defaults()
 
         (self.oldImageNames, self.newImageNames) = process(**kwargs)
-        aSheet = Toplevel(self)
-        sheet = HPSpreadsheet(os.path.join(self.outputdir.get(), 'csv'), master=aSheet)
+        aSheet = HPSpreadsheet(self.outputdir.get(), master=self.master)
+        #sheet = HPSpreadsheet(master=aSheet)
+        aSheet.open_spreadsheet()
         self.keywordsbutton.config(state=NORMAL)
         #self.kvpairsbutton.config(state=NORMAL)
         # sheet.open_spreadsheet()
