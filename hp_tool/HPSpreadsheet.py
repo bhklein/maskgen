@@ -266,12 +266,14 @@ class CustomTable(pandastable.Table):
         # row = self.get_row_clicked(event)
         # col = self.get_col_clicked(event)
         self.model.setValueAt('True', self.currentrow, self.currentcol)
+        self.gotonextCell()
         self.redraw()
 
     def enter_false(self, event):
         # row = self.get_row_clicked(event)
         # col = self.get_col_clicked(event)
         self.model.setValueAt('False', self.currentrow, self.currentcol)
+        self.gotonextCell()
         self.redraw()
 
     def move_selection(self, event, direction='down', entry=False):
