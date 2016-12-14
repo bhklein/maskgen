@@ -110,7 +110,8 @@ def loadJSONGraph(pathname):
     with open(pathname, "r") as f:
         try:
             return json_graph.node_link_graph(json.load(f, encoding='utf-8'), multigraph=False, directed=True)
-        except  ValueError:
+        except  ValueError as ve:
+            print ve
             return json_graph.node_link_graph(json.load(f), multigraph=False, directed=True)
 
 
@@ -175,6 +176,7 @@ class ImageGraph:
     # These paths are all the paths associated with image or video files for a link (edge).
     edgeFilePaths = {'inputmaskname': 'inputmaskownership',
                      'arguments.XMP File Name': 'xmpfileownership',
+                     'arguments.qtfile': 'qtfileownership',
                      'maskname': None,
                      'selectmaskname': 'selectmaskownership',
                      'videomasks.videosegment': None}
@@ -472,6 +474,12 @@ class ImageGraph:
         return None, None
 
     def get_image(self, name, metadata=dict()):
+        """
+        :param name:
+        :param metadata:
+        :return:
+        @rtype (ImageWrapper,str)
+        """
         filename = os.path.abspath(os.path.join(self.dir, self.G.node[name]['file']))
         im = self.openImage(filename,metadata=metadata)
         return im, filename
