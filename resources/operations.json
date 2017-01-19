@@ -982,6 +982,21 @@
       ]
     },
     {
+      "category": "AntiForensic",
+      "name": "Dithering",
+      "mandatoryparameters": {},
+      "rules": [
+        "checkSize",
+        "check_eight_bit"
+      ],
+      "optionalparameters": {},
+      "description": "Correct for JPG artifacts.",
+      "includeInMask": false,
+      "transitions": [
+        "image.image"
+      ]
+    },
+    {
       "category": "ArtifactsCGI",
       "name": "ArtifactsCGIArtificialLighting",
       "mandatoryparameters": {},
