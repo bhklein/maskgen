@@ -1,13 +1,21 @@
 {
     "name": "Gamma Correction",
     "operation": {
-      "name": "IntensityNormalization",
+      "name": "Normalization",
       "category": "Intensity",
       "description": "Apply gamma adjustment so the mean image color will have a value of 50% (https://www.imagemagick.org/script/command-line-options.php#auto-gamma)",
       "software": "ImageMagick",
       "version": "7.0",
-      "arguments": {},
-      "transitions": ["image.image"]
+      "arguments": {
+        "selection type": {
+          "type": "text",
+          "defaultvalue": "auto",
+          "description": "Auto Gamma"
+        }
+      },
+      "transitions": [
+        "image.image"
+      ]
     },
     "command": {
       "default": [

@@ -1,0 +1,40 @@
+{
+    "sample": {
+        "available": false,
+        "sequestered": false,
+        "video_count": 0,
+        "exif": [
+            {
+                "username": null,
+                "exif_camera_make": "SAMPLE",
+                "created": "2017-07-10",
+                "exif_camera_model": "model_from_exif",
+                "hp_app": null,
+                "media_type": "image",
+                "exif_device_serial_number": "123456789"
+            }
+        ],
+        "url": null,
+        "camera_description": "This is only a sample camera. It is not real. Connect to browser to get the latest list.",
+        "camera_lens_mount": null,
+        "camera_firmware": null,
+        "hp_device_local_id": "sample001",
+        "affiliation": "PAR",
+        "camera_type": "DSLR",
+        "camera_sensor": "Full Frame",
+        "camera_edition": null,
+        "camera_version": null,
+        "calibrations": [
+            {
+                "count": 60,
+                "media_type": "image",
+                "updated": "2017-03-31",
+                "batch_type": "primary",
+                "subject": "RGB_No_Lens_50"
+            }
+        ],
+        "image_count": null,
+        "id": null,
+        "hp_camera_model": "D750"
+    }
+}

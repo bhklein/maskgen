@@ -1,0 +1,30 @@
+{
+    "operation": {
+        "category": "Intensity",
+        "name": "Normalization",
+        "description": "Equalize histogram: https://www.imagemagick.org/Usage/color_mods/#equalize.",
+        "version": "7.0", 
+        "arguments": {
+        }, 
+        "transitions": [
+            "image.image"
+        ], 
+        "software": "ImageMagick"
+    },
+    "command": {
+        "default": [
+            "convert", 
+            "{inputimage}",
+            "-equalize",
+            "{outputimage}"
+        ], 
+        "win32": [
+            "magick", 
+            "convert", 
+            "{inputimage}",
+            "-equalize",
+            "{outputimage}"
+        ]
+    }, 
+    "name": "MagickEqualization"
+}

@@ -1,0 +1,10 @@
+
+*.pyc
+*.xml
+*.iml
+maskgen/Untitled.json
+maskgen.log.*
+*.mp4
+maskgen.log
+.idea/workspace.xml___jb_tmp___
+*.log

@@ -4,9 +4,8 @@ import unittest
 class TestSoftwareLoader(unittest.TestCase):
 
    def test_load(self):
-      software_loader.loadOperations('operations.json')
       ops = software_loader.getOperationsByCategory('image','image')
-      self.assertTrue('AdditionalEffectAddLightSource' in ops['AdditionalEffect'])
+      self.assertTrue('Mosaic' in ops['AdditionalEffect'])
       self.assertTrue('AntiForensicExifQuantizationTable' in ops['AntiForensic'])
       self.assertFalse('FilterColorLUT' in ops['Filter'])
       self.assertFalse('PasteImageSpliceToFrames' in ops['Paste'])

@@ -1,0 +1,100 @@
+{
+  "Device": [
+    "ImageFilename",
+    "CameraModel",
+    "HP-CameraModel",
+    "DeviceSN",
+    "HP-DeviceLocalID",
+    "LensModel",
+    "LensSN",
+    "HP-LensLocalID",
+    "HP-LensFilter",
+    "HP-PrimarySecondary"
+  ],
+  "CaptureInfo": [
+    "ImageFilename",
+    "HP-Collection",
+    "HP-Recapture",
+    "HP-RecaptureSubject",
+    "HP-ZoomLevel",
+    "HP-LightSource",
+    "HP-Orientation",
+    "HP-DynamicStatic",
+    "ShutterSpeed",
+    "Aperture",
+    "ExpCompensation",
+    "ISO",
+    "NoiseReduction",
+    "WhiteBalance",
+    "ExposureMode",
+    "FlashFired",
+    "FocusMode",
+    "BitDepth",
+    "ImageWidth",
+    "ImageHeight"
+  ],
+  "Refl/Shadow": [
+    "ImageFilename",
+    "HP-WeakReflection",
+    "HP-StrongReflection",
+    "HP-TransparentReflection",
+    "HP-ReflectedObject",
+    "HP-Shadows",
+	"HP-MultipleLightSources"
+  ],
+  "Location": [
+    "ImageFilename",
+    "HP-Location",
+    "HP-Inside",
+    "HP-Outside"
+  ],
+  "FilterInfo": [
+    "ImageFilename",
+    "CustomRendered",
+    "HP-OnboardFilter",
+    "HP-OBFilterType",
+    "HP-LensFilter",
+    "HP-HDR",
+    "HP-App"
+  ],
+  "Image Fields":[
+    "ImageFilename",
+    "HP-OnboardFilter",
+    "HP-HDR",
+    "HP-Inside",
+    "HP-Outside",
+    "HP-PrimarySecondary"
+  ],
+  "Video Fields": [
+    "ImageFilename",
+    "HP-OnboardFilter",
+    "HP-HDR",
+    "HP-CameraKinematics",
+    "HP-Inside",
+    "HP-Outside",
+    "HP-PrimarySecondary",
+    "HP-ReleaseForms"
+  ],
+  "Audio Fields": [
+    "ImageFilename",
+    "HP-NumberOfSpeakers",
+    "HP-Inside",
+    "HP-Outside",
+    "HP-ProximitytoSource",
+    "HP-MultiInput",
+    "HP-AudioChannels",
+    "HP-Echo",
+    "HP-BackgroundNoise",
+    "HP-Description",
+    "HP-Modifier",
+    "HP-AngleofRecording",
+    "HP-MicLocation"
+  ],
+  "3D Model Fields": [
+    "ImageFilename",
+    "HP-Thumbnails",
+    "HP-Keywords",
+    "HP-PolyCount",
+    "HP-License"
+  ]
+}

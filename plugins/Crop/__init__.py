@@ -1,5 +1,6 @@
 import numpy
 from maskgen.image_wrap import ImageWrapper
+import cv2
 
 def transform(img,source,target,**kwargs):
     pixelWidth = int(kwargs['pixel_width'])
@@ -7,10 +8,12 @@ def transform(img,source,target,**kwargs):
     x = int(kwargs['crop_x'])
     y = int(kwargs['crop_y'])
     cv_image = numpy.array(img)
-    #new_img = numpy.zeros((cv_image.shape[0]-pixelWidth, cv_image.shape[1]-pixelHeight,cv_image.shape[2])).astype('uint8')
     new_img = cv_image[y:-(pixelHeight-y), x:-(pixelWidth-x),:]
     ImageWrapper(new_img).save(target)
     return None,None
+
+def suffix():
+    return None
 
 def operation():
   return {
@@ -18,7 +21,7 @@ def operation():
           'name': 'TransformCrop',
           'description':'Crop',
           'software':'OpenCV',
-          'version':'2.4.13',
+          'version':cv2.__version__,
           'arguments':{'crop_x': {'type': "int[0:100000]", 'description':'upper left corner vertical position'},
                        'crop_y': {'type': "int[0:100000]", 'description':'upper left corner horizontal position'},
                        'pixel_width': {'type': "int[0:100000]", 'description':'amount of pixels to remove horizontal'},

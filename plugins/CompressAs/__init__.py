@@ -1,94 +1,31 @@
-"""
-PAR Government Systems
+# =============================================================================
+# Authors: PAR Government
+# Organization: DARPA
+#
+# Copyright (c) 2016 PAR Government
+# All rights reserved.
+# ==============================================================================
 
-compress_as takes in two JPEG images, and compresses the first with the q tables of the second
+# Compress_as takes in two JPEG images, and compresses the first with the q tables of the second
 
-"""
-
-import os
-import tempfile
-from PIL import Image
-import numpy as np
-from bitstring import BitArray
-import maskgen.exif
+import maskgen
+import logging
 
 
-def parse_tables(imageFile):
-    """
-    Grab all quantization tables from jpg header
-    :param imageFile: string containing jpg image filename
-    :return: list of lists of unsorted quantization tables
-    """
 
-    # open the image and scan for q table marker "FF DB"
-    s = open(imageFile, 'rb')
-    b = BitArray(s)
-    ffdb = b.findall('0xffdb', bytealigned=True)
+def cs_save_as(img,source, target, donor, qTables,rotate,quality, color_mode):
+    import os
+    import tempfile
+    from PIL import Image
+    import numpy as np
+    from maskgen.jpeg.utils import get_subsampling, parse_tables, sort_tables, check_rotate
+    import maskgen.exif
+    import maskgen
+    from maskgen import image_wrap
 
-    # grab the tables, based on format
-    tables = []
-    for start in ffdb:
-        subset = b[start + 5 * 8:start + 134 * 8]
-        check = subset.find('0xff', bytealigned=True)
-        if check:
-            subsubset = subset[0:check[0]]
-            tables.append(subsubset)
-        else:
-            tables.append(subset[0:64 * 8])
-            tables.append(subset[65 * 8:])
-
-    # concatenate the tables, and convert them from bitarray to list
-    finalTable = []
-    for table in tables:
-        tempTable = []
-
-        bi = table.bin
-        for i in xrange(0, len(bi), 8):
-            byte = bi[i:i + 8]
-            val = int(byte, 2)
-            tempTable.append(val)
-        finalTable.append(tempTable)
-    s.close()
-    return finalTable
-
-def sort_tables(tablesList):
-    """
-    Un-zigzags a list of quantization tables
-    :param tablesList: list of lists of unsorted quantization tables
-    :return: list of lists of sorted quantization tables
-    """
-
-    # hardcode order, since it will always be length 64
-    indices = [0,1,5,6,14,15,27,28,2,4,7,13,16,26,29,42,3,8,12,17,25,30,41,43,
-               9,11,18,24,31,40,44,53,10,19,23,32,39,45,52,54,20,22,33,38,46,
-               51,55,60,21,34,37,47,50,56,59,61,35,36,48,49,57,58,62,63]
-
-    newTables = []
-    for listIdx in xrange(len(tablesList)):
-        if len(tablesList[listIdx]) == 64:
-            tempTable = []
-            for elmIdx in xrange(0,64):
-                tempTable.append(tablesList[listIdx][indices[elmIdx]])
-            newTables.append(tempTable)
-    return newTables
-
-def ca_check_rotate(im, jpg_file_name):
-    return Image.fromarray(maskgen.exif.rotateAccordingToExif(np.asarray(im),maskgen.exif.getOrientationFromExif(jpg_file_name)))
-
-def get_subsampling(im):
-    ss = maskgen.exif.getexif(im, ['-f', '-n', '-args', '-YCbCrSubsampling'], separator='=')
-    # can only handle 4:4:4, 4:2:2, or 4:1:1
-    yyval = ss['-YCbCrSubSampling'] if '-YCbCrSubSampling' in ss else ''
-    if yyval == '2 1':
-        return '4:2:2'
-    elif yyval in ['4 1','2 2']:
-        return '4:1:1'
-    else:
-        return '4:4:4'
-
-def cs_save_as(source, target, donor, qTables,rotate):
     """
     Saves image file using quantization tables
+    :param ImageWrapper
     :param source: string filename of source image
     :param target: string filename of target (result)
     :param donor: string filename of donor JPEG
@@ -110,20 +47,30 @@ def cs_save_as(source, target, donor, qTables,rotate):
     else:
         finalTable = qTables
 
-    # write jpeg with specified tables
-    with open(source,'rb') as fp:
-        im = Image.open(fp)
-        im.load()
+    if img.mode == 'RGBA':
+        im = Image.fromarray(np.asarray(img.convert('RGB')))
+    else:
+        im = Image.fromarray(np.asarray(img))
+
+    if color_mode == 'from donor':
+        donor_img = image_wrap.openImageFile(donor)
+        if donor_img.mode != img.mode:
+            im = Image.fromarray(np.asarray(img.convert(donor_img.mode)))
+
+    analysis = None
     if rotate:
-      im = ca_check_rotate(im,donor)
+      im,analysis = check_rotate(im,donor)
     sbsmp = get_subsampling(donor)
     try:
-        im.save(target, subsampling=sbsmp, qtables=finalTable)
+        if len(finalTable) > 0:
+            im.save(target, subsampling=sbsmp, qtables=finalTable,quality=quality)
+        else:
+            im.save(target, subsampling=sbsmp,quality=quality if quality > 0 else 100)
     except:
         im.save(target)
     width, height = im.size
     maskgen.exif.runexif(['-overwrite_original', '-q', '-all=', target])
-    maskgen.exif.runexif(['-P', '-q', '-m', '-TagsFromFile', donor, '-all:all', '-unsafe', target])
+    maskgen.exif.runexif([ '-overwrite_original', '-P', '-q', '-m', '-tagsFromFile', donor, '-all:all>all:all', '-unsafe', target])
 
     # Preview is not well standardized in JPG (unlike thumbnail), so it doesn't always work.
     if prevTable:
@@ -131,16 +78,15 @@ def cs_save_as(source, target, donor, qTables,rotate):
         fd, tempFile = tempfile.mkstemp(suffix='.jpg')
         os.close(fd)
         try:
-            im.save(tempFile, subsampling=sbsmp, qtables=prevTable)
+            im.save(tempFile, subsampling=sbsmp, qtables=prevTable,quality=quality)
             maskgen.exif.runexif(['-overwrite_original', '-P', '-q', '-m', '-PreviewImage<=' + tempFile + '', target])
         except OverflowError:
             prevTable[:] = [[(x - 128) for x in row] for row in prevTable]
             try:
-                im.save(tempFile, subsampling=sbsmp, qtables=prevTable)
+                im.save(tempFile, subsampling=sbsmp, qtables=prevTable,quality=quality)
                 maskgen.exif.runexif(['-overwrite_original', '-P', '-q', '-m', '-PreviewImage<=' + tempFile + '', target])
             except Exception as e:
-                print 'Preview generation failed'
-                print e
+                logging.getLogger('maskgen').error('Preview generation failed {}'.fomat(str(e)))
         finally:
             os.remove(tempFile)
 
@@ -149,19 +95,18 @@ def cs_save_as(source, target, donor, qTables,rotate):
         fd, tempFile = tempfile.mkstemp(suffix='.jpg')
         os.close(fd)
         try:
-            im.save(tempFile, subsampling=sbsmp, qtables=thumbTable)
+            im.save(tempFile, subsampling=sbsmp, qtables=thumbTable,quality=quality)
             maskgen.exif.runexif(['-overwrite_original', '-P', '-q', '-m', '-ThumbnailImage<=' + tempFile + '', target])
         except OverflowError:
             thumbTable[:] = [[(x - 128) for x in row] for row in thumbTable]
             try:
-                im.save(tempFile, subsampling=sbsmp, qtables=thumbTable)
+                im.save(tempFile, subsampling=sbsmp, qtables=thumbTable,quality=quality)
                 maskgen.exif.runexif(['-overwrite_original', '-P', '-q', '-m', '-ThumbnailImage<=' + tempFile + '', target])
             except Exception as e:
-                print 'thumbnail generation failed'
-                print e
+                logging.getLogger('maskgen').error('Thumbnail generation failed {}'.fomat(str(e)))
         finally:
             os.remove(tempFile)
-    maskgen.exif.runexif(['-P', '-q', '-m', '-XMPToolkit=',
+    maskgen.exif.runexif(['-overwrite_original', '-P', '-q', '-m', '-XMPToolkit=',
                                         '-ExifImageWidth=' + str(width),
                                         '-ImageWidth=' + str(width),
                                         '-ExifImageHeight=' + str(height),
@@ -169,24 +114,29 @@ def cs_save_as(source, target, donor, qTables,rotate):
                                         target])
     createtime = maskgen.exif.getexif(target, args=['-args', '-System:FileCreateDate'], separator='=')
     if '-FileCreateDate' in createtime:
-        maskgen.exif.runexif(['-P', '-q', '-m', '-System:fileModifyDate=' + createtime['-FileCreateDate'], target])
+        maskgen.exif.runexif(['-overwrite_original', '-P', '-q', '-m', '-System:fileModifyDate=' + createtime['-FileCreateDate'], target])
+    return analysis
 
 def transform(img,source,target, **kwargs):
+    from maskgen.jpeg.utils import  parse_tables, sort_tables
+
     donor = kwargs['donor']
     rotate = kwargs['rotate'] == 'yes'
+    quality = int(kwargs['quality']) if 'quality' in kwargs else 0
+    color_mode = kwargs['color mode'] if 'color mode' in kwargs else 'from donor'
     
     tables_zigzag = parse_tables(donor)
     tables_sorted = sort_tables(tables_zigzag)
-    cs_save_as(source, target, donor, tables_sorted,rotate)
+    analysis = cs_save_as(img,source, target, donor, tables_sorted,rotate, quality, color_mode)
     
-    return None,None
+    return analysis , None
     
 def operation():
     return {'name':'AntiForensicExifQuantizationTable',
             'category':'AntiForensic',
             'description':'Save as a JPEG using original tables and EXIF',
-            'software':'PIL',
-            'version':'1.1.7',
+            'software':'maskgen',
+            'version':maskgen.__version__[0:3],
             'arguments':{
                 'donor':{
                     'type':'donor',
@@ -197,6 +147,17 @@ def operation():
                     'type':'yesno',
                     'defaultvalue':'yes',
                     'description':'Answer yes if the image should be counter rotated according to EXIF Orientation field'
+                },
+                'quality': {
+                    'type': 'int[0:100]',
+                    'defaultvalue': '0',
+                    'description': "Quality Factor overrides the donor.  The default value of 0 indicates using the donor image's quality factor."
+                },
+                'color mode':{
+                    'type': 'list',
+                    'values': ['from donor', 'from source'],
+                    'defaultvalue': 'from donor',
+                    'description': "Which image's color space will inform the color space of the output file."
                 }
             },
             'transitions': [

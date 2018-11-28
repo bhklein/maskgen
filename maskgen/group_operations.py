@@ -1,8 +1,19 @@
+# =============================================================================
+# Authors: PAR Government
+# Organization: DARPA
+#
+# Copyright (c) 2016 PAR Government
+# All rights reserved.
+# ==============================================================================
+
 import plugins
 import sys
 import exif
 import numpy as np
 import tool_set
+import logging
+from validation.core import ValidationMessage, Severity
+from scenario_model import ImageProjectModel
 
 
 class BaseOperation:
@@ -17,7 +28,7 @@ class BaseOperation:
         return pairs
 
     def suffix(self):
-        return ''
+        return None
 
 
 class CopyCompressionAndExifGroupOperation(BaseOperation):
@@ -27,10 +38,15 @@ class CopyCompressionAndExifGroupOperation(BaseOperation):
     """
 
     def __init__(self, scModel):
+        """
+
+        :param scModel:
+        @type scModel: ImageProjectModel
+        """
         BaseOperation.__init__(self, scModel)
 
     def suffix(self):
-        return ''
+        return None
 
     def filterPairs(self, pairs):
         if len(pairs) == 0:
@@ -39,7 +55,7 @@ class CopyCompressionAndExifGroupOperation(BaseOperation):
         for pair in pairs:
             pred = self.scModel.getDescriptionForPredecessor(pair[0])
             if str(pred.operationName) .startswith('AntiForensicExif'):
-                print 'Error: Last operation is ExifMetaCopy. Use CompressAs plugin with base image as donor.'
+                logging.getLogger('maskgen').warning(" Last operation is ExifMetaCopy. Use CompressAs plugin with base image as donor.")
             else:
                 result.append(pair)
         return result
@@ -49,9 +65,14 @@ class CopyCompressionAndExifGroupOperation(BaseOperation):
           Return error message valid link pairs in a tuple
         """
         newPairs = []
-        msg = None
+        msgs = None
         if not self.pairs:
-            msg = 'Could not find paths from base to terminal nodes where the the last operation is not ExifMetaCopy.'
+            msgs = [ValidationMessage(Severity.WARNING,
+                                      '',
+                                      '',
+                                      'Could not find paths from base to terminal nodes where the the last operation is not ExifMetaCopy.',
+                                      'CompressAs-Group',
+                                      None)]
             newPairs = None
         else:
             for pair in self.pairs:
@@ -72,17 +93,25 @@ class CopyCompressionAndExifGroupOperation(BaseOperation):
                     if r1 != r2:
                         rotate = 'yes'
                 if donor_filename.lower().endswith('jpg') or donor_filename.lower().endswith('jpeg'):
-                    msg, pairs = self.scModel.imageFromPlugin('CompressAs', im, filename, donor=pair[1],
-                                                          sendNotifications=False, rotate=rotate,
-                                                          skipRules=True)
+                    msgs, pairs = self.scModel.mediaFromPlugin('CompressAs', donor=pair[1],
+                                                               sendNotifications=False, rotate=rotate,
+                                                               skipRules=True)
                 elif donor_filename.lower().endswith('tiff') or donor_filename.lower().endswith('tif'):
-                    msg, pairs = self.scModel.imageFromPlugin('OutputTIFF', im, filename, donor=pair[1],
-                                                                  sendNotifications=False, rotate=rotate,
-                                                                  skipRules=True)
+                    msgs, pairs = self.scModel.mediaFromPlugin('OutputTIFF', donor=pair[1],
+                                                               sendNotifications=False, rotate=rotate,
+                                                               skipRules=True)
                 else:
                     pairs = []
-                    msg = 'Group operation not permitted for base image nodes that are not JPEG or TIFF'
                 if len(pairs) == 0:
-                    break
+                    continue
                 newPairs.extend(pairs)
-        return (msg, newPairs)
+            if len(newPairs) == 0:
+                if msgs is None:
+                    msgs = []
+                msgs.append(ValidationMessage(Severity.WARNING,
+                                              '',
+                                              '',
+                                              'Group operation not permitted for base image nodes that are not JPEG or TIFF',
+                                              'CompressAs-Group',
+                                              None))
+        return (msgs, newPairs)
